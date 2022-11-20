@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    image: rails-docker
+    restart: "no"
+    environment:
+      - RAILS_ENV=${RAILS_ENV:-development}
+      - DBHOST=postgresql
+      - DBUSER=${DBUSER:-postgres}
+      - DBPASS=${DBPASS:-password}
+      - JOB_WORKER_URL=${JOB_WORKER_URL:-redis://redis:6379}
+    ports:
+      - 3000:3000
+    env_file:
+      - ./.env.development
+    depends_on:
+      - postgresql
+      - sidekiq
+    volumes:
+      - ".:/usr/src/app"
+
+  postgresql:
+    image: postgres
+    restart: "no"
+    ports:
+      - 5432:5432
+    environment:
+      POSTGRES_DB: docker_rails_development
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    volumes:
+      - postgresdb:/var/lib/postgresql/data/
+
+  sidekiq:
+    build: .
+    command: bundle exec sidekiq
+    depends_on:
+      - redis
+    volumes:
+      - ".:/usr/src/app"
+    env_file:
+      - ./.env.development
+
+  redis:
+    image: redis:7.0.5-alpine
+
+volumes:
+    postgresdb:
