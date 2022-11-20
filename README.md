@@ -3,7 +3,12 @@
 Rails 7
 Ruby 3.0.0
 
-See make file for commands to run, to start the app run `make run`
+## Initial Setup
+Run `make db.setup`
+Run `make run`
+
+
+See `Makefile` for commands to run, to start the app run `make run`
 
 To run the app in the background, run `make start`
 
