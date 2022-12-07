@@ -1,23 +1,39 @@
-FROM ruby:3.0.0
+# https://lipanski.com/posts/dockerfile-ruby-best-practices
+# 145MB - docker multistage development environment with live reload
+FROM ruby:3.0.0-alpine AS base
 
-RUN apt-get update -qq && apt-get install -y build-essential postgresql-client
-# throw errors if Gemfile has been modified since Gemfile.lock
-RUN bundle config --global frozen 1
+ARG BUILD_PACKAGES="build-base git bash openssh" \
+    DEV_PACKAGES="postgresql-dev" \
+    RUBY_PACKAGES="tzdata"
+ENV RAILS_ENV=development
 
 COPY Gemfile* /usr/src/app/
 WORKDIR /usr/src/app/
 
-RUN gem install bundler -no-ri-no-rdoc
-RUN bundle install --jobs 8
-RUN rm -rf /usr/local/bundle/cache/*.gem && \
-    find /usr/local/bundle/gems/ -name "*.c" -delete && \
-    find /usr/local/bundle/gems/ -name "*.o" -delete
+RUN apk update && apk upgrade && \
+    apk add --no-cache --virtual .build-deps $BUILD_PACKAGES && apk add $DEV_PACKAGES \
+    && apk add --update $RUBY_PACKAGES && bundle install --jobs=5 && apk del .build-deps
 
-WORKDIR /usr/src/app/
-COPY . /usr/src/app/
+COPY . .
 
-ENTRYPOINT ["./entrypoint.sh"]
+# Remove folders not needed in resulting image
+RUN rm -rf tmp/cache app/assets vendor/assets spec
+
+############### Build step done ###############
+
+FROM ruby:3.0.0-alpine
+
+ARG PACKAGES="tzdata postgresql-client"
+
+ENV RAILS_ENV=development
+WORKDIR /usr/src/app
+
+RUN apk update && apk upgrade \
+    && apk add --update --no-cache $PACKAGES
+
+COPY --from=base /usr/local/bundle/ /usr/local/bundle/
+COPY . .
+
+ENTRYPOINT ["sh", "./entrypoint.sh"]
 EXPOSE 3000
-
-# Start the main process.
-CMD ["rails", "server", "-b", "0.0.0.0"]
+CMD ["bundle","exec","rails", "server", "-b", "0.0.0.0"]

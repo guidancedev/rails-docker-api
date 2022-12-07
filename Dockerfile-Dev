@@ -1,0 +1,29 @@
+# 375mb - docker development environment live reload
+FROM ruby:3.0.0-alpine
+
+ARG BUILD_PACKAGES="build-base git bash"
+ARG DEV_PACKAGES="postgresql-dev"
+ARG RUBY_PACKAGES="tzdata"
+
+# throw errors if Gemfile has been modified since Gemfile.lock
+RUN bundle config --global frozen 1
+
+COPY Gemfile* /usr/src/app/
+WORKDIR /usr/src/app/
+
+RUN apk update && apk upgrade && \
+    # gem install bundler -v 2.2.3 -no-ri-no-rdoc && \
+    apk add --no-cache --virtual .build-deps $BUILD_PACKAGES && apk add $DEV_PACKAGES \
+    && apk add --update $RUBY_PACKAGES && bundle install --jobs=5 && apk del .build-deps
+
+RUN rm -rf /usr/local/bundle/cache/*.gem && \
+    find /usr/local/bundle/gems/ -name "*.c" -delete && \
+    find /usr/local/bundle/gems/ -name "*.o" -delete
+
+COPY . /usr/src/app/
+
+ENTRYPOINT ["sh", "./entrypoint.sh"]
+EXPOSE 3000
+
+# Start the main process.
+CMD ["rails", "server", "-b", "0.0.0.0"]

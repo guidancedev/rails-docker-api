@@ -18,11 +18,15 @@ services:
     depends_on:
       - postgresql
       - sidekiq
+      - redis
     volumes:
       - ".:/usr/src/app"
+      # Excluded subdirectories
+      - /usr/src/app/node_modules/
+      - /usr/src/app/tmp/
 
   postgresql:
-    image: postgres
+    image: postgres:13-alpine
     restart: "no"
     ports:
       - 5432:5432
@@ -37,6 +41,7 @@ services:
     build: .
     command: bundle exec sidekiq
     depends_on:
+      - postgresql
       - redis
     volumes:
       - ".:/usr/src/app"

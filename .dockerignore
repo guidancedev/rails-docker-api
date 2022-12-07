@@ -1,0 +1,12 @@
+.git
+.gitignore
+.github
+log
+tmp
+coverage
+Dockerfile
+Makefile
+.bundle
+.jest
+public/packs
+public/packs-test

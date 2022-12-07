@@ -1,0 +1,51 @@
+# 125MB - no live changes as multi stage build, use for CI or server
+FROM ruby:3.0.0-alpine AS base
+
+ARG RAILS_ROOT=/app
+ARG BUILD_PACKAGES="build-base git bash openssh"
+ARG DEV_PACKAGES="postgresql-dev"
+ARG RUBY_PACKAGES="tzdata"
+ENV RAILS_ENV=development
+ENV BUNDLE_APP_CONFIG="$RAILS_ROOT/.bundle"
+ENV BUNDLE_PATH="vendor/bundle"
+
+WORKDIR $RAILS_ROOT
+
+COPY Gemfile* ./
+
+RUN apk update && apk upgrade && \
+    gem install bundler -v 2.2.3 -no-ri-no-rdoc && \
+    apk add --no-cache --virtual .build-deps $BUILD_PACKAGES && apk add $DEV_PACKAGES \
+    && apk add --update $RUBY_PACKAGES && bundle install --path=vendor/bundle --jobs=5 && apk del .build-deps
+
+# Remove unneeded files (cached *.gem, *.o, *.c)
+RUN rm -rf vendor/bundle/ruby/3.0.0/cache/*.gem \
+    && find vendor/bundle/ruby/3.0.0/gems/ -name "*.c" -delete \
+    && find vendor/bundle/ruby/3.0.0/gems/ -name "*.o" -delete
+
+COPY . .
+
+# Remove folders not needed in resulting image
+RUN rm -rf tmp/cache app/assets vendor/assets spec
+
+############### Build step done ###############
+
+FROM ruby:3.0.0-alpine
+
+ARG RAILS_ROOT=/app
+ARG PACKAGES="tzdata postgresql-client"
+
+ENV RAILS_ENV=development
+ENV BUNDLE_APP_CONFIG="$RAILS_ROOT/.bundle"
+ENV BUNDLE_PATH="vendor/bundle"
+WORKDIR $RAILS_ROOT
+
+# install packages
+RUN apk update && apk upgrade \
+    && apk add --update --no-cache $PACKAGES
+
+COPY --from=base $RAILS_ROOT $RAILS_ROOT
+
+ENTRYPOINT ["sh", "./entrypoint.sh"]
+EXPOSE 3000
+CMD ["rails", "server", "-b", "0.0.0.0"]
