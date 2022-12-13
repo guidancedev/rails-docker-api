@@ -52,6 +52,9 @@ Rails.application.configure do
 
   # Highlight code that triggered database queries in logs.
   config.active_record.verbose_query_logs = true
+  
+  Rails.application.config.hosts << "arayara.api.guidance.dev"
+
 
 
   # Raises error for missing translations.
